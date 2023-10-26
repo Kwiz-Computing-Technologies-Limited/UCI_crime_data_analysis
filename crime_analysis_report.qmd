@@ -1,5 +1,7 @@
 # Crime Analysis
 
+*link to analysis report <https://docs.google.com/document/d/1CoA32IZ98HbzbR77jdPzjto3ZI_ZJS3-yOCw3seiO9U/edit?usp=sharing>*
+
 ```{r, message=FALSE, warning=FALSE}
 # libraries
 library(dplyr)
@@ -41,6 +43,7 @@ convert_chr_to_num <- function(df) {
 }
 
 crime = convert_chr_to_num(crime)
+str(crime)
 ```
 
 # Exploratory analysis
@@ -124,44 +127,9 @@ var_correlations$correlations |>
 var_correlations$cor_heatmap 
 ```
 
-
 ## Multiple Linear Regression
 
 ```{r, message=FALSE, warning=FALSE}
-# function to fit regression models
-fit_models <- function(df, y_vars, groups) {
-  models <- list()
-  
-  for (y in y_vars) {
-    for (group in groups) {
-      
-      if(!is.null(groups)) {
-        x = (read.csv("names.csv") |>
-          filter(Group == group))$Variable
-      
-        # Create the formula for the regression model
-        formula <- as.formula(paste(y, "~", paste(x, collapse = "+")))
-      
-        # Fit the regression model
-        model <- lm(formula, data = df)
-      
-        # Store the model in the list
-        models[[paste(y, "~", paste(x, collapse = " + "))]] <- model
-      } 
-    }
-  }
-  
-  return(models)
-}
-
-# define the Y variables and the groups of dependent variables
-y_vars = crime_names
-groups = (read.csv("names.csv"))$Group |>
-  unique()
-
-# fit models
-models <- fit_models(crime, y_vars, groups)
-
 # fit model on all vars
 all_models = list()
 for (y in crime_names) {
@@ -173,16 +141,11 @@ for (y in crime_names) {
   all_models[[paste(y, "~", "All_Vars")]] <- model_all
 }
 
-
-
-# model equations for violent crimes
-model_eqns_violent = names(models)[1:30]
-
-# model equations for violent crimes
-model_eqns_non_violent = names(models)[31:60]
-
 # model equations with all variables
 model_eqns_all = names(all_models)
+
+
+
 
 # function to extract info from a model
 extract_stats <- function(models) {
@@ -219,14 +182,12 @@ extract_stats <- function(models) {
   return(stats)
 }
 
-
-# summary of models
-summary_models = models |>
-  extract_stats()
-
 # summary of models with all vars
 summary_models_all = all_models |>
   extract_stats()
+
+
+
 
 # Function to return the model outputs in 2 clean tables
 split_stats <- function(stats) {
@@ -263,17 +224,14 @@ split_stats <- function(stats) {
   return(list(coef_df = coef_df, summary_df = summary_df))
 }
 
-# extract the significant models (p_value <= 0.05)
-significant_models <- split_stats(summary_models)$summary_df |>
-  filter(P_Value < 0.05 | P_Value == 0.05) |>
-  arrange(desc(Adjusted_R_Square))
-rownames(significant_models) = NULL
-
 # extract the significant all_models (p_value <= 0.05)
 significant_models_all <- split_stats(summary_models_all)$summary_df |>
   filter(P_Value < 0.05 | P_Value == 0.05) |>
   arrange(desc(Adjusted_R_Square))
 rownames(significant_models_all) = NULL
+
+
+
 
 
 # function to split the coefficients into separate tables by model
@@ -298,11 +256,12 @@ split_coef <- function(stats) {
 }
 
 # split the coefficients into different tables by model
-coef_list <- split_coef(summary_models)
 coef_list_all <- split_coef(summary_models_all)
-
 ## save the list of tables for the model coefficient
 capture.output(c(coef_list_all), file = "coef_list.txt")
+
+
+
 
 # Get the significant features within each model
 # function to loop through the tables of model coefficients to filter only significant variables (p_value < = 0.05)
@@ -324,13 +283,11 @@ extract_significant_coef <- function(coef_list) {
   return(significant_coef_list)
 }
 
-# get the list coefficient tables of the significant features
-significant_coef_list <- extract_significant_coef(coef_list)
 
 # get the list coefficient tables of the significant features from the models with all variables
 significant_coef_list_all <- extract_significant_coef(coef_list_all)
+significant_coef_list_all
 ```
-
 
 # update the regression equations with coefficient estimates for the significant variables
 
@@ -374,18 +331,6 @@ regression_equation <- function(coeff_tables) {
   return(equations)
 }
 
-regression_equations = regression_equation(significant_coef_list)
-regression_equations = gsub("*\\*.", "", regression_equations)
-regression_equations = gsub("\\(Intercept)", "", regression_equations)
-regression_equations = gsub("\\+ -", "-", regression_equations)
-
-crime_features = (names(significant_coef_list) |>
-  str_split("~")) |>
-  lapply(function(x) x[1]) |>
-  unlist()
-
-regression_equations = str_c(crime_features, regression_equations, sep = " =")
-
 # using models fitted with all vars
 regression_equations_all = regression_equation(significant_coef_list_all)
 regression_equations_all = gsub("*\\*.", "", regression_equations_all)
@@ -398,6 +343,7 @@ crime_features_all = (names(significant_coef_list_all) |>
   unlist()
 
 regression_equations_all = str_c(crime_features_all, regression_equations_all, sep = " =")
+regression_equations_all
 ```
 
 
@@ -450,15 +396,6 @@ test_residual_var <- function(models) {
 }
 
 
-resid_results = test_residual_var(models)
-
-# Print the results for Breusch-Pagan homoscedasticity test
-print(resid_results$resid_test_stats) |> 
-  knitr::kable()
-# Print the models with homoscedasticity
-cat(resid_results$homoscedasticity, sep = ", ")
-
-
 # for models fitted on all vars
 resid_results_all = test_residual_var(all_models)
 
@@ -501,14 +438,9 @@ sensitivity_analysis <- function(models) {
   return(results)
 }
 
-# run the sensitivity analysis
-#sensitivity = sensitivity_analysis(models[resid_results$index])
-
-# save the sensitivity analyses output
-#capture.output(sensitivity, file = "sensitivity_analysis.txt")
-
 # run the sensitivity analysis for models with all variables
 sensitivity_all = sensitivity_analysis(all_models[resid_results_all$index])
+sensitivity_all
 
 # save the sensitivity analyses output
 capture.output(sensitivity_all, file = "sensitivity_analysis.txt")

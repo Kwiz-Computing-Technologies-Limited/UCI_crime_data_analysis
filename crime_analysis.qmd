@@ -1,0 +1,515 @@
+# Crime Analysis
+
+```{r, message=FALSE, warning=FALSE}
+# libraries
+library(dplyr)
+library(ggplot2)
+library(reshape2)
+library(psych)
+library(stringr)
+library(broom)
+```
+
+```{r, message=FALSE, warning=FALSE}
+# predictor columns' descriptions
+feature_names = read.csv("names.csv")[, "Variable"]
+
+# crime indicators
+crime_names = read.csv("crime_indicators.csv")[, "Variable"]
+
+# crime data
+crime = read.csv("crime_data.csv") |>
+  select(all_of(feature_names), all_of(crime_names))
+```
+
+# Data Cleaning and processing
+
+```{r, message=FALSE, warning=FALSE}
+# check variable types
+var_type = (lapply(crime, typeof))
+
+# all variables should be numeric
+
+## function to convert from chr to num
+convert_chr_to_num <- function(df) {
+  for (colname in names(df)) {
+    if (is.character(df[[colname]])) {
+      df[[colname]] <- as.numeric(df[[colname]])
+    }
+  }
+  return(df)
+}
+
+crime = convert_chr_to_num(crime)
+```
+
+# Exploratory analysis
+
+## summary statistics
+
+```{r, message=FALSE, warning=FALSE}
+# function to generate summary
+generate_summaries <- function(df) {
+  
+  # summary statistics
+  describe(df) |>
+    arrange(desc(mean))
+}
+
+# function to generate boxplots
+generate_all_boxplots <- function(df) {
+  
+  for (colname in names(df)) {
+    df = df[!is.na(df[[colname]]), ]
+  
+    print(
+      ggplot(df, aes_string(colname)) +
+        geom_boxplot() +
+        labs(title = paste("Distribution of", colname),
+             x = colname,
+             y = "Count") +
+        theme_minimal()
+    )
+  }
+}
+
+# get the summary statistics
+generate_summaries(crime) |>
+  round(0) |>
+  knitr::kable()
+
+# Distribution of the Data (boxplots)
+generate_all_boxplots(crime)
+```
+
+## Correlation coefficients and heatmaps
+
+```{r, message=FALSE, warning=FALSE}
+# function to complete correlation analysis
+correlation_function <- function(df) {
+  # Calculate correlations
+  correlations <- cor(df, use = "complete.obs")
+  
+  
+  # Melt the correlation matrix
+  correlations_melt <- melt(correlations)
+
+  # Generate the heatmap
+  cor_heatmap = ggplot(data = correlations_melt, aes(x=Var1, y=Var2, fill=value)) + 
+    geom_tile() +
+    scale_fill_gradient2(low = "blue", high = "red", mid = "white", 
+                         midpoint = 0, limit = c(-1,1), space = "Lab", 
+                         name="Pearson\nCorrelation") +
+    theme_minimal() + 
+    theme(axis.text.x = element_text(angle = 90, vjust = 1, 
+                                     size = 12, hjust = 1),
+          axis.text.y = element_text(size = 12)) +
+    coord_fixed()
+  
+  return(list(
+    correlations = correlations, 
+    cor_heatmap = cor_heatmap
+  ))
+}
+
+# apply function to data
+var_correlations = correlation_function(crime)
+
+# correlation matrix
+var_correlations$correlations |>
+  round(2) |>
+  knitr::kable()
+
+# correlation heatmap
+var_correlations$cor_heatmap 
+```
+
+
+## Multiple Linear Regression
+
+```{r, message=FALSE, warning=FALSE}
+# function to fit regression models
+fit_models <- function(df, y_vars, groups) {
+  models <- list()
+  
+  for (y in y_vars) {
+    for (group in groups) {
+      
+      if(!is.null(groups)) {
+        x = (read.csv("names.csv") |>
+          filter(Group == group))$Variable
+      
+        # Create the formula for the regression model
+        formula <- as.formula(paste(y, "~", paste(x, collapse = "+")))
+      
+        # Fit the regression model
+        model <- lm(formula, data = df)
+      
+        # Store the model in the list
+        models[[paste(y, "~", paste(x, collapse = " + "))]] <- model
+      } 
+    }
+  }
+  
+  return(models)
+}
+
+# define the Y variables and the groups of dependent variables
+y_vars = crime_names
+groups = (read.csv("names.csv"))$Group |>
+  unique()
+
+# fit models
+models <- fit_models(crime, y_vars, groups)
+
+# fit model on all vars
+all_models = list()
+for (y in crime_names) {
+  # Create the formula for the regression model
+  formula <- as.formula(paste(y, "~", paste(feature_names, collapse = "+")))
+  # Fit the regression model
+  model_all <- lm(formula, data = crime)
+  # Store the model in the list
+  all_models[[paste(y, "~", "All_Vars")]] <- model_all
+}
+
+
+
+# model equations for violent crimes
+model_eqns_violent = names(models)[1:30]
+
+# model equations for violent crimes
+model_eqns_non_violent = names(models)[31:60]
+
+# model equations with all variables
+model_eqns_all = names(all_models)
+
+# function to extract info from a model
+extract_stats <- function(models) {
+  stats <- list()
+
+  for (name in names(models)) {
+    model <- models[[name]]
+    
+    # Extract the coefficient estimates
+    coef_estimates <- coef(summary(model)) |> data.frame()
+    
+    # Extract R square and adjusted R square
+    r_square <- summary(model)$r.squared
+    adj_r_square <- summary(model)$adj.r.squared
+    
+    # Extract F statistic and p value
+    f_statistic <- summary(model)$fstatistic[1]
+    p_value <- pf(f_statistic, summary(model)$fstatistic[2], summary(model)$fstatistic[3], lower.tail = FALSE)
+    
+    # Combine the statistics into a list
+    model_stats <- list(
+      Model = name,
+      Coefficients = coef_estimates,
+      R_Square = r_square,
+      Adjusted_R_Square = adj_r_square,
+      F_Statistic = f_statistic,
+      P_Value = p_value
+    )
+    
+    # Append the model statistics to the overall statistics
+    stats[[name]] <- model_stats
+  }
+  
+  return(stats)
+}
+
+
+# summary of models
+summary_models = models |>
+  extract_stats()
+
+# summary of models with all vars
+summary_models_all = all_models |>
+  extract_stats()
+
+# Function to return the model outputs in 2 clean tables
+split_stats <- function(stats) {
+  # Initialize empty dataframes
+  coef_df <- data.frame()
+  summary_df <- data.frame()
+
+  for (name in names(stats)) {
+    # Extract the model statistics
+    model_stats <- stats[[name]]
+    
+    # Create a dataframe for the coefficients
+    coef_df_temp <- data.frame(
+      Model = name,
+      Coefficients = list(model_stats$Coefficients)
+    )
+    
+    # Append the coefficients dataframe to the overall coefficients dataframe
+    coef_df <- rbind(coef_df, coef_df_temp)
+    
+    # Create a dataframe for the summary statistics
+    summary_df_temp <- data.frame(
+      Model = name,
+      R_Square = model_stats$R_Square,
+      Adjusted_R_Square = model_stats$Adjusted_R_Square,
+      F_Statistic = model_stats$F_Statistic,
+      P_Value = model_stats$P_Value
+    )
+    
+    # Append the summary statistics dataframe to the overall summary statistics dataframe
+    summary_df <- rbind(summary_df, summary_df_temp)
+  }
+  
+  return(list(coef_df = coef_df, summary_df = summary_df))
+}
+
+# extract the significant models (p_value <= 0.05)
+significant_models <- split_stats(summary_models)$summary_df |>
+  filter(P_Value < 0.05 | P_Value == 0.05) |>
+  arrange(desc(Adjusted_R_Square))
+rownames(significant_models) = NULL
+
+# extract the significant all_models (p_value <= 0.05)
+significant_models_all <- split_stats(summary_models_all)$summary_df |>
+  filter(P_Value < 0.05 | P_Value == 0.05) |>
+  arrange(desc(Adjusted_R_Square))
+rownames(significant_models_all) = NULL
+
+
+# function to split the coefficients into separate tables by model
+split_coef <- function(stats) {
+  # Initialize an empty list
+  coef_list <- list()
+
+  for (name in names(stats)) {
+    # Extract the model statistics
+    model_stats <- stats[[name]]
+    
+    # Create a dataframe for the coefficients
+    coef_df <- data.frame(
+      Coefficients = model_stats$Coefficients
+    )
+    
+    # Append the coefficients dataframe to the overall coefficients list
+    coef_list[[name]] <- coef_df
+  }
+  
+  return(coef_list)
+}
+
+# split the coefficients into different tables by model
+coef_list <- split_coef(summary_models)
+coef_list_all <- split_coef(summary_models_all)
+
+## save the list of tables for the model coefficient
+capture.output(c(coef_list_all), file = "coef_list.txt")
+
+# Get the significant features within each model
+# function to loop through the tables of model coefficients to filter only significant variables (p_value < = 0.05)
+extract_significant_coef <- function(coef_list) {
+  # Initialize an empty list
+  significant_coef_list <- list()
+
+  for (name in names(coef_list)) {
+    # Extract the coefficients dataframe
+    coef_df <- coef_list[[name]]
+    
+    # Extract rows where "Coefficients.Pr...t.." is less than or equal to 0.05
+    significant_coef_df <- coef_df[coef_df$`Coefficients.Pr...t..` <= 0.05, ]
+    
+    # Append the significant coefficients dataframe to the overall significant coefficients list
+    significant_coef_list[[name]] <- significant_coef_df
+  }
+  
+  return(significant_coef_list)
+}
+
+# get the list coefficient tables of the significant features
+significant_coef_list <- extract_significant_coef(coef_list)
+
+# get the list coefficient tables of the significant features from the models with all variables
+significant_coef_list_all <- extract_significant_coef(coef_list_all)
+```
+
+
+# update the regression equations with coefficient estimates for the significant variables
+
+```{r, message=FALSE, warning=FALSE}
+# Define the function
+regression_equation <- function(coeff_tables) {
+  # Initialize an empty list to store equations
+  equations <- list()
+
+  # Loop over the list of coefficient tables
+  for (i in seq_along(coeff_tables)) {
+    # Get the current table
+    table <- coeff_tables[[i]]
+
+    # Initialize an empty string to store the equation
+    equation <- ""
+
+    # Loop over the rows of the table
+    for (j in 1:nrow(table)) {
+      # Get the current row
+      row <- table[j, ]
+
+      # Get the coefficient name and value
+      coeff_name <- rownames(table)[j]
+      coeff_value <- row[1]
+
+      # Append to the equation string
+      if (j == 1) {
+        equation <- paste(equation, round(coeff_value, 4), "*", coeff_name)
+      } else {
+        equation <- paste(equation, "+", round(coeff_value, 4), "*",  coeff_name)
+      }
+    }
+    
+
+    # Append to the list of equations
+    equations[[i]] <- equation
+  }
+
+  # Return the list of equations
+  return(equations)
+}
+
+regression_equations = regression_equation(significant_coef_list)
+regression_equations = gsub("*\\*.", "", regression_equations)
+regression_equations = gsub("\\(Intercept)", "", regression_equations)
+regression_equations = gsub("\\+ -", "-", regression_equations)
+
+crime_features = (names(significant_coef_list) |>
+  str_split("~")) |>
+  lapply(function(x) x[1]) |>
+  unlist()
+
+regression_equations = str_c(crime_features, regression_equations, sep = " =")
+
+# using models fitted with all vars
+regression_equations_all = regression_equation(significant_coef_list_all)
+regression_equations_all = gsub("*\\*.", "", regression_equations_all)
+regression_equations_all = gsub("\\(Intercept)", "", regression_equations_all)
+regression_equations_all = gsub("\\+ -", "-", regression_equations_all)
+
+crime_features_all = (names(significant_coef_list_all) |>
+  str_split("~")) |>
+  lapply(function(x) x[1]) |>
+  unlist()
+
+regression_equations_all = str_c(crime_features_all, regression_equations_all, sep = " =")
+```
+
+
+## residual analysis
+
+```{r, message=FALSE, warning=FALSE}
+# test for homoscedaticity 
+# Load necessary library
+library(lmtest)
+
+# function to test for homoscedasticity
+test_residual_var <- function(models) {
+  
+  # Initialize an empty vector to store list of models with no homoscedasticity
+  homoscedasticity <- c()
+  index <- c()
+  
+  # Initialize an empty vector to store residual analysis test statistics
+  resid_test_stats <- data.frame(model = character(),
+                                 bp = numeric(),
+                                 df = integer(),
+                                 pvalue = numeric())
+  
+  # Loop through each model in the list
+  for(i in seq_along(models)) {
+    # Perform the Breusch-Pagan test
+    bp_test <- bptest(models[[i]])
+    
+    # add results to the list
+    resid_test_stats[ i, ]$model = paste("Model", i, sep = "_")
+    resid_test_stats[ i, ]$bp = bp_test$statistic |> round(4)
+    resid_test_stats[ i, ]$df = bp_test$parameter |> round(4)
+    resid_test_stats[ i, ]$pvalue = bp_test$p.value |> round(4)
+  
+    # If the p-value is >= 0.05, add the model to the vector
+    if(bp_test$p.value >= 0.05) {
+      homoscedasticity <- c(homoscedasticity, paste("Model", i))
+      index = c(index, i)
+    }
+  }
+  
+  
+  rownames(resid_test_stats) = NULL
+  
+  return(list(
+    resid_test_stats = resid_test_stats,
+    homoscedasticity = homoscedasticity,
+    index = index
+  ))
+}
+
+
+resid_results = test_residual_var(models)
+
+# Print the results for Breusch-Pagan homoscedasticity test
+print(resid_results$resid_test_stats) |> 
+  knitr::kable()
+# Print the models with homoscedasticity
+cat(resid_results$homoscedasticity, sep = ", ")
+
+
+# for models fitted on all vars
+resid_results_all = test_residual_var(all_models)
+
+# Print the results for Breusch-Pagan homoscedasticity test
+print(resid_results_all$resid_test_stats) |> 
+  knitr::kable()
+# Print the models with homoscedasticity
+cat(resid_results_all$homoscedasticity, sep = ", ")
+```
+
+
+## Sensitivity Analysis
+
+
+```{r, message=FALSE, warning=FALSE}
+# Define a function that takes a list of fitted regression models and performs sensitivity analysis
+sensitivity_analysis <- function(models) {
+  results <- list()
+  
+  for (i in seq_along(models)) {
+    model <- models[[i]]
+    coef <- coef(model)
+    res <- residuals(model)
+    sigma <- sd(res)
+    sens <- matrix(0, nrow = length(coef), ncol = 2)
+    
+    for (j in seq_along(coef)) {
+      partial <- coef[j] * model$model[, j]
+      se <- sqrt(vcov(model)[j, j])
+      elasticity <- coef[j] * mean(model$model[, j]) / mean(fitted(model))
+      delta <- 100 * se / coef[j]
+      sens[j, ] <- c(elasticity, delta)
+    }
+    
+    rownames(sens) <- names(coef)
+    colnames(sens) <- c("Elasticity", "Delta")
+    results[[paste0(resid_results_all$homoscedasticity[i])]] <- sens # using all variables models
+  }
+  
+  return(results)
+}
+
+# run the sensitivity analysis
+#sensitivity = sensitivity_analysis(models[resid_results$index])
+
+# save the sensitivity analyses output
+#capture.output(sensitivity, file = "sensitivity_analysis.txt")
+
+# run the sensitivity analysis for models with all variables
+sensitivity_all = sensitivity_analysis(all_models[resid_results_all$index])
+
+# save the sensitivity analyses output
+capture.output(sensitivity_all, file = "sensitivity_analysis.txt")
+```

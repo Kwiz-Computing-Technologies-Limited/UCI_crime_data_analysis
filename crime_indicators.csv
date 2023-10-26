@@ -1,0 +1,11 @@
+Variable,Description,Type
+murdPerPop,Murders per 100K population,Violent
+rapesPerPop,Rapes per 100K population,Violent
+robbbPerPop,Robberies per 100K population,Violent
+assaultPerPop,Assaults per 100K population,Violent
+ViolentCrimesPerPop,Total number of violent crimes per 100K population,Violent
+burglPerPop,Burglaries per 100K population,Non Violent
+larcPerPop,Larcenies per 100K population,Non Violent
+autoTheftPerPop,Auto thefts per 100K population,Non Violent
+arsonsPerPop,Arsons per 100K population,Non Violent
+nonViolPerPop,Total number of non-violent crimes per 100K population,Non Violent

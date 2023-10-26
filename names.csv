@@ -1,0 +1,49 @@
+Variable,Description,Group
+PctUnemployed,"Percentage of people 16 and over who are in the labor force, and unemployed",Unemployment
+PctEmplManu,Percentage of people employed in manufacturing,Unemployment
+PctEmplProfServ,Percentage of people employed in professional services,Unemployment
+PctOccupMgmtProf,Percentage of people employed in management or professional occupations,Unemployment
+PctLess9thGrade,Percentage of people 25 and over with less than 9th grade education,Education
+PctNotHSGrad,Percentage of people without high school diplomas,Education
+PctBSorMore,Percentage of people with a Bachelor’s degree or more,Education
+PctYoungKids2Par,Percentage of kids 4 and under in 1 or less parent households (Transform with 1 - PctYoungKids2Par),Family
+PctTeen2Par,Percentage of teens in 1 or less parent households (Transform with 1 - PctTeen2Par),Family
+NumKidsBornNeverMar,Number of kids born to never married,Family
+PctWorkMom,Percentage of women with children below 18 who are in the workforce,Family
+PctWorkMomYoungKids,Percentage of women with children below 6 who are in the workforce,Family
+FemalePctDiv,Percentage of divorced women,Family
+MalePctDivorce,Percentage of divorced men,Family
+PctForeignBorn,Percentage of foreign born,Immigration
+PctRecentImmig,Percentage of immigration in recent years,Immigration
+PctRecImmig5,Percentage of immigration in the last 5 years,Immigration
+PctRecImmig8,Percentage of immigration in the last 8 years,Immigration
+PctRecImmig10,Percentage of immigration in the last 10 years,Immigration
+RacialMatchCommPol,Racial match between police and community,Law_enforcement
+LemasSwFTPerPop,Sworn full time police officers per 100K population,Law_enforcement
+LemasSwFTFieldPerPop,Sworn full time police officers in field operations per 100K population,Law_enforcement
+LemasTotReqPerPop,Total requests for police per 100K population,Law_enforcement
+PolicReqPerOffic,Total requests for police per police officer,Law_enforcement
+PolicPerPop,Police officers per 100K population,Law_enforcement
+racePctAsian,Percentage of Asian population,Law_enforcement
+racepctblack,Percentage of Black population,Law_enforcement
+racePctHisp,Percentage of Hispanic population,Law_enforcement
+racePctWhite,Percentage of White population,Law_enforcement
+PctPolicWhite,Percentage of White police officers,Law_enforcement
+PctPolicBlack,Percentage of Black police officers,Law_enforcement
+PctPolicHisp,Percentage of Hispanic police officers,Law_enforcement
+PctPolicAsian,Percentage of Asian police officers,Law_enforcement
+population,Population,Demography
+PopDens,Population density,Demography
+agePct12t21,Percentage of population that is 12-21 in age,Demography
+agePct12t29,Percentage of population that is 12-29 in age,Demography
+agePct16t24,Percentage of population that is 16-24 in age,Demography
+agePct65up,Percentage of population that is 65 and over in age,Demography
+medFamInc,Median family income,Demography
+medIncome,Median household income,Demography
+perCapInc,Average per capita income,Demography
+whitePerCap,Per capita income for White population,Demography
+blackPerCap,Per capita income for Black population,Demography
+indianPerCap,Per capita income for Indian population,Demography
+AsianPerCap,Per capita income for Asian population,Demography
+OtherPerCap,Per capita income for other races,Demography
+HispPerCap,Per capita income for Hispanic population,Demography
